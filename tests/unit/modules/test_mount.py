@@ -292,39 +292,24 @@ class MountTestCase(TestCase, LoaderModuleMockMixin):
                     self.assertRaises(CommandExecutionError,
                                       mount.set_filesystems, 'A', 'B', 'C')
 
-    def test_mount(self):
+    def test_mount(self, monkeypatch):
         '''
         Mount a device
         '''
-        with patch.dict(mount.__grains__, {'os': 'MacOS'}):
-            mock = MagicMock(return_value=True)
-            with patch.object(os.path, 'exists', mock):
-                mock = MagicMock(return_value=None)
-                with patch.dict(mount.__salt__, {'file.mkdir': None}):
-                    mock = MagicMock(return_value={'retcode': True,
-                                                   'stderr': True})
-                    with patch.dict(mount.__salt__, {'cmd.run_all': mock}):
-                        self.assertTrue(mount.mount('name', 'device'))
+        monkeypatch.setitem(mount.__salt__, 'file.mkdir', None)
 
-                    mock = MagicMock(return_value={'retcode': False,
-                                                   'stderr': False})
-                    with patch.dict(mount.__salt__, {'cmd.run_all': mock}):
-                        self.assertTrue(mount.mount('name', 'device'))
+        exists = create_autospec(os.path.exists, return_value=True)
+        monkeypatch.setattr(os.path, 'exists', exists)
+        run_all = create_autospec(cmd.run_all)
+        monkeypatch.setitem(mount.__salt__, 'cmd.run_all', run_all)
 
-        with patch.dict(mount.__grains__, {'os': 'AIX'}):
-            mock = MagicMock(return_value=True)
-            with patch.object(os.path, 'exists', mock):
-                mock = MagicMock(return_value=None)
-                with patch.dict(mount.__salt__, {'file.mkdir': None}):
-                    mock = MagicMock(return_value={'retcode': True,
-                                                   'stderr': True})
-                    with patch.dict(mount.__salt__, {'cmd.run_all': mock}):
-                        self.assertTrue(mount.mount('name', 'device'))
+        for os in ['MacOS', 'AIX']:
+            monkeypatch.setitem(mount.__grains__, 'os', os)
+            run_all.return_value = {'retcode': True, 'stderr': True}
+            self.assertTrue(mount.mount('name', 'device'))
 
-                    mock = MagicMock(return_value={'retcode': False,
-                                                   'stderr': False})
-                    with patch.dict(mount.__salt__, {'cmd.run_all': mock}):
-                        self.assertTrue(mount.mount('name', 'device'))
+            run_all.return_value = {'retcode': False, 'stderr': False}
+            self.assertTrue(mount.mount('name', 'device'))
 
     def test_remount(self):
         '''
